@@ -30,12 +30,12 @@ Now you're set up. You can use the helper methods below to make commong API requ
 
 - `=canvasCourseList()`
 - `=canvasCourseList(221)`
-- `=canvasPageViews('12345')`
+- `=canvasPageViews("12345")`
 
 Or use the generic methods to call any method not listed:
 
-- `=canvasList('/api/v1/users/9876/logins')`
-- `=canvasObject('/api/v1/courses/1234')`
+- `=canvasList("/api/v1/users/9876/logins")`
+- `=canvasObject("/api/v1/courses/1234")`
 
 You can also specify additional options using the second parameter. These options can 
 be passed as a string similar to query strings used in URLs. Possible options are:
@@ -56,4 +56,4 @@ Here's some example strings for your benefit:
 
 And some examples of using options in helper methods:
 - `=canvasCourseList(221, "results=100")`
-- `=canvasPageViews('12345', "results=30&keys=url,action,user_agent,user_id,render_time")`
+- `=canvasPageViews("12345", "results=30&keys=url,action,user_agent,user_id,render_time")`
