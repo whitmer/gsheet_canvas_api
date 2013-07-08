@@ -23,12 +23,12 @@
 //
 //   =canvasCourseList()
 //   =canvasCourseList(221)
-//   =canvasPageViews('12345')
+//   =canvasPageViews("12345")
 //
 // Or use the generic methods to call any method not listed:
 //
-//   =canvasList('/api/v1/users/9876/logins')
-//   =canvasObject('/api/v1/courses/1234')
+//   =canvasList("/api/v1/users/9876/logins")
+//   =canvasObject("/api/v1/courses/1234")
 //
 // You can also specify additional options using the second parameter. These options can 
 //   be passed as a string similar to query strings used in URLs. Possible options are:
@@ -49,20 +49,35 @@
 //
 // And some examples of using options in helper methods:
 //   =canvasCourseList(221, "results=100")
-//   =canvasPageViews('12345', "results=30&keys=url,action,user_agent,user_id,render_time")
+//   =canvasPageViews("12345", "results=30&keys=url,action,user_agent,user_id,render_time")
 //
 
 // Now on to the code
 
 // Helper methods for common requests
+
+/**
+* Lists all courses for the current user or specified account
+*
+* @param account_id the id of the account to query. If blank or set to mine will instead get list of courses for the current user
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a list of courses
+*/
 function canvasCourseList(account_id, options){  
-  if(account_id == 'all' || !account_id) {
+  if(account_id == 'mine' || !account_id) {
     return canvasList("/api/v1/courses", options);
   } else {
     return canvasList("/api/v1/accounts/" + account_id + "/courses", options);
   }
 };
 
+/**
+* Lists all page views for the current or specified user
+*
+* @param user_id the id of the user to lookup for queries
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a list of page views
+*/
 function canvasPageViews(user_id, options) {
   if(user_id == 'me' || !user_id) {
     return canvasList("/api/v1/users/self/page_views", options)
@@ -71,9 +86,17 @@ function canvasPageViews(user_id, options) {
   }
 }
 
+/**
+* Lists all accounts for the current user
+*
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a list of accounts
+*/
 function canvasAccountsList(options){
   return canvasList("/api/v1/accounts", options);
 };
+
+
 
 function testCanvasList() {
   canvasList("/api/v1/users/self/page_views", "results=30&keys=url,action,user_agent,user_id,render_time");
@@ -82,13 +105,20 @@ function testCanvasList() {
 var _ = Underscore.load();
 
 // Generic list API endpoint
+/**
+* Get a list of objects from a list-based endpoint in the Canvas API
+*
+* @param endpoint API endpoint to hit (i.e. "/api/v1/users/self/page_views")
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a list of results
+*/
 function canvasList(endpoint, options){
   var options = parseOptions_(options, {results: 20, keys: ""});
-  var result = canvasGET_(endpoint, options);
+  var result = canvasGET(endpoint, options);
   var list = result.result;
   if(options && options.results) {
     while(result.hasMore && list.length < options.results) {
-      result = canvasGET_(result.endpoint, options);
+      result = canvasGET(result.endpoint, options);
       list = list.concat(result.result);
     }
   }
@@ -96,17 +126,23 @@ function canvasList(endpoint, options){
 }
 
 // Generic object API endpoint
+/**
+* Lists all attributes for the object-based endpoint in the Canvas API
+*
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a list of results
+*/
 function canvasObject(endpoint, options) {
-  return listify_(canvasGET_(endpoint, options));
+  return listify_(canvasGET(endpoint, options).result);
 }
 
 // Generic GET request API endpoint
 // adapted from http://mashe.hawksey.info/2013/02/lak13-recipes-in-capturing-and-analyzing-data-using-sna-on-canvas-discussions-with-nodexl-for-when-its-not-a-snapp/
-function canvasGET_(endpoint, options){
+function canvasGET(endpoint, options){
   var token = UserProperties.getProperty("canvas_access_token") || ScriptProperties.getProperty("canvas_access_token");
-  if(!token) { throw "missing property: canvas_access_token must be set in File -> Project Properties" }
+  if(!token) { return "missing property: canvas_access_token must be set in File -> Project Properties" }
   var host = UserProperties.getProperty("canvas_api_host") || ScriptProperties.getProperty("canvas_api_host");
-  if(!host) { throw "missing property: canvas_api_host must be set in File -> Project Properties" }
+  if(!host) { return "missing property: canvas_api_host must be set in File -> Project Properties" }
   var options = parseOptions_(options)
   var perpage = (options.per_page != undefined) ? "?per_page="+options.per_page : "";
   var resp = {};
