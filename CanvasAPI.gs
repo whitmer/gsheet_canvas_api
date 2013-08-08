@@ -51,6 +51,11 @@
 //   =canvasCourseList(221, "results=100")
 //   =canvasPageViews("12345", "results=30&keys=url,action,user_agent,user_id,render_time")
 //
+// There are some helper methods around getting out account-level reports, which get
+// get generated as csv files for download
+//   =canvasAccountReports("self")
+//   =canvasAccountReport("self", "grade_csv")
+//
 
 // Now on to the code
 
@@ -99,7 +104,7 @@ function canvasAccountsList(options){
 
 
 function testCanvasList() {
-  canvasList("/api/v1/users/self/page_views", "results=30&keys=url,action,user_agent,user_id,render_time");
+  return canvasList("/api/v1/users/self/page_views", "results=30&keys=url,action,user_agent,user_id,render_time");
 }
 
 var _ = Underscore.load();
@@ -113,7 +118,7 @@ var _ = Underscore.load();
 * @return a list of results
 */
 function canvasList(endpoint, options){
-  var options = parseOptions_(options, {results: 20, keys: ""});
+  options = parseOptions_(options, {results: 20, keys: ""});
   var result = canvasGET(endpoint, options);
   var list = result.result;
   if(options && options.results) {
@@ -123,6 +128,86 @@ function canvasList(endpoint, options){
     }
   }
   return listify_(list, options.keys);
+}
+
+/**
+* Lists all available account-level reports
+*
+* @param account_id the id of the account to query. If blank or "self" will default to current root account
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a list of report names and identifiers
+*/
+function canvasAccountReports(account_id, options) {
+  account_id = account_id || "self";
+  options = parseOptions_(options, {results: 20, keys: "title,report"});
+  return canvasList("/api/v1/accounts/" + account_id + "/reports", options);
+}
+
+/**
+* Retrieves the latest version of the specified report for the
+* specified account. Downloads and parses the csv file and inserts
+* data from the csv into the spreadsheet. Reports must be generated from within
+* the Canvas interface.
+*
+* @param account_id the id of the account to query. If blank or "self" will default to current root account
+* @param report_type string of type of report to generate (see canvasAccountReports)
+* @param options string of additional options for filtering columns, number of results, etc.
+* @return a full (possibly large) report as downloaded
+*/
+function canvasAccountReport(account_id, report_type, options) {
+  account_id = account_id || "self";
+  options = options || {};
+  if(!report_type) { throw "report type is required"; }
+  if(!report_type.match(/_csv$/)) { throw "only csv reports are currently supported"; }
+  var get = canvasGET("/api/v1/accounts/" + account_id + "/reports/" + report_type);
+  var result = get.result;
+  if(get.responseCode != 200) {
+    throw "error: " + get.message;
+  } else if(result && result.length && result.length > 0) {
+    if(result[0].attachment && result[0].attachment.url) {
+      var csv = UrlFetchApp.fetch(result[0].attachment.url);
+      if (csv.getResponseCode() == 200){
+        return listify_(Utilities.parseCsv(csv.getContentText()), options.keys);
+      } else {
+        throw "unexpected error: " + csv.getContentText();
+      }
+    } else {
+      throw "latest version of the report '" + report_type + "' has not completed";
+    }
+  } else {
+    throw "report '" + report_type + "' has never been generated";
+  }
+}
+
+function generateCanvasAccountReport() {
+  var account_id = Browser.inputBox("account id");
+  if(!account_id || account_id == 'cancel') { return; }
+  var report_type = Browser.inputBox("report type");
+  if(!report_type || report_type == 'cancel') { return; }
+  var response = canvasRequest_("/api/v1/accounts/" + account_id + "/reports/" + report_type, "post");
+  if(response.responseCode == 200) {
+    Browser.msgBox("Report is being generated. Will notify again when report is complete.");
+    Utilities.sleep(1000);
+    checkReport_(account_id, report_type, response.result.id);
+  } else {
+    Browser.msgBox("Error: " + response.message);
+  }
+}
+
+function checkReport_(account_id, report_type, id) {
+  var response = canvasGET("/api/v1/accounts/" + account_id + "/reports/" + report_type + "/" + id);
+  if(response.responseCode == 200) {
+    if(response.result.status == "complete") {
+      Browser.msgBox("Report for " + account_id + ", " + report_type + " is now ready");
+    } else if(response.result.status == "error") {
+      Browser.msgBox("Report for " + account_id + ", " + report_type + " failed with an error");
+    } else {
+      Utilities.sleep(5000);
+      checkReport_(account_id, report_type, id);
+    }
+  } else {
+    Browser.msgBox("There was an unexpected problem with the report for " + account_id + ", " + report_type);
+  }
 }
 
 // Generic object API endpoint
@@ -139,20 +224,28 @@ function canvasObject(endpoint, options) {
 // Generic GET request API endpoint
 // adapted from http://mashe.hawksey.info/2013/02/lak13-recipes-in-capturing-and-analyzing-data-using-sna-on-canvas-discussions-with-nodexl-for-when-its-not-a-snapp/
 function canvasGET(endpoint, options){
-  var token = UserProperties.getProperty("canvas_access_token") || ScriptProperties.getProperty("canvas_access_token");
-  if(!token) { return "missing property: canvas_access_token must be set in File -> Project Properties" }
+  return canvasRequest_(endpoint, "get", options);
+}
+function canvasRequest_(endpoint, method, options) {
   var host = UserProperties.getProperty("canvas_api_host") || ScriptProperties.getProperty("canvas_api_host");
-  if(!host) { return "missing property: canvas_api_host must be set in File -> Project Properties" }
+  if(!host) {
+    return "missing property: canvas_api_host must be set in File -> Project Properties"
+  }
+  var token = UserProperties.getProperty("canvas_access_token") || ScriptProperties.getProperty("canvas_access_token");
+  if(!token) {
+    return "missing property: canvas_access_token must be set in File -> Project Properties"
+  }
   var options = parseOptions_(options)
   var perpage = (options.per_page != undefined) ? "?per_page="+options.per_page : "";
   var resp = {};
-  var requestData = { method: "get",
+  var requestData = { method: method,
                       headers: { "Authorization": "Bearer " + token}};
   var result = UrlFetchApp.fetch(host + endpoint + perpage, requestData);
   if (result.getResponseCode() == 200){
     var header = result.getHeaders();
     if (header.Link) {
-      var nextLink = parseLinkHeader_(header.Link).rels.next.href;
+      var parsed = parseLinkHeader_(header.Link);
+      var nextLink = parsed && parsed.rels && parsed.rels.next && parsed.rels.next.href;
       if (nextLink) {
         nextLink = "/" + nextLink.split(/\//).slice(3).join("/");
         resp.endpoint = nextLink;
@@ -171,6 +264,9 @@ function canvasGET(endpoint, options){
 // Parses the query string-style parameters that can be passed for API calls
 function parseOptions_(str, defaults){
   var options = defaults || {};
+  if(str && str.alreadyParsed) {
+    options = str;
+  }
   if(typeof(str) == 'string') {
     var splits = (str || "").split(/&/);
     for(var idx in splits) {
@@ -180,6 +276,7 @@ function parseOptions_(str, defaults){
       }
     }
   }
+  options.alreadyParsed = true;
   return options;
 }
 
@@ -301,3 +398,39 @@ function traverse_(o){
   });
   return flat;
 };
+
+// Menu options
+function onOpen() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var menuEntries = [ {name: "Check Settings", functionName: "checkTokens"},
+                     {name: "Set Access Token", functionName: "setToken_"},
+                     {name: "Set API Host", functionName: "setHost_"},
+                     {name: "Generate Report", functionName: "generateCanvasAccountReport"}];
+  ss.addMenu("Canvas", menuEntries);  
+}
+function setToken_() {
+  var token = Browser.inputBox("Enter your API access token:");
+  if(token && token != "cancel") {
+    ScriptProperties.setProperty("canvas_access_token", token);
+  } else {
+    Browser.msgBox("Spreadsheet won't work without a valid access token");
+  }
+}
+function setHost_() {
+  var host = Browser.inputBox("What domain are you wanting to make calls against? (typically 'https://yourschool.instructure.com')");
+  if(host && host != "cancel") {
+    if(!host.match(/http/)) {
+      host = "https://" + host;
+    }
+    host = host.replace(/\/$/, '');
+    ScriptProperties.setProperty("canvas_api_host", host);
+  } else {
+    Browser.msgBox("Spreadsheet work work without a valid host value");
+  }
+}
+function checkTokens() {
+  var host = UserProperties.getProperty("canvas_api_host") || ScriptProperties.getProperty("canvas_api_host");
+  if(!host) { setHost_(); }
+  var token = UserProperties.getProperty("canvas_access_token") || ScriptProperties.getProperty("canvas_access_token");
+  if(!token) { setToken_(); }
+}
