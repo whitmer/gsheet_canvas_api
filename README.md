@@ -57,3 +57,8 @@ Here's some example strings for your benefit:
 And some examples of using options in helper methods:
 - `=canvasCourseList(221, "results=100")`
 - `=canvasPageViews("12345", "results=30&keys=url,action,user_agent,user_id,render_time")`
+
+There are some helper methods around getting out account-level reports, which get
+get generated as csv files for downloa
+- `=canvasAccountReports("self")`
+- `=canvasAccountReport("self", "grade_csv")`
