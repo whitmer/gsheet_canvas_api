@@ -11,7 +11,7 @@ In order for this script to work you'll first need to know the API host you want
 speak to (typically https://yourschool.instructure.com) and you'll also need to 
 generate an access token for the script to make calls on your behalf.
 
-Once you have the values you need to add this script to your Google Spreadsheet as a 
+Once you have the values you'll need to add this script to your Google Spreadsheet as a 
 script. In the Spreadsheet click Tools -> Script Editor. Then paste this source 
 code in to the editor that pops up. You'll also need to add Underscore as a dependency. 
 In the script editor click Resources -> Manage Libraries. In the Find a Library box 
