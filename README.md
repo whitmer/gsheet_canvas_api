@@ -18,8 +18,8 @@ In the script editor click Resources -> Manage Libraries. In the Find a Library 
 enter "MGwgKN2Th03tJ5OdmlzB8KPxhMjh3Sh48". This script was written using version 23, 
 but you can probably just pick the latest version and you'll be safe.
 
-Next, still in the script editor, click File -> Project Properties. Go to the Project 
-Properties tab and add two rows:
+Next, switch back to the spreadsheet and reload the page. You should now see a menu
+option "Canvas". Click Canvas => Check Settings and it will ask for a host and token.
 
 - `canvas_api_host`: (typically https://yourschool.instructure.com)
 - `canvas_access_token`: (generate a new token from your profile page in Canvas)
