@@ -180,9 +180,22 @@ function canvasAccountReport(account_id, report_type, options) {
 }
 
 function generateCanvasAccountReport() {
-  var account_id = Browser.inputBox("account id");
+  var account_id = Browser.inputBox("Account ID");
   if(!account_id || account_id == 'cancel') { return; }
-  var report_type = Browser.inputBox("report type");
+  var list = canvasAccountReports(account_id);
+  var arr = [];
+  if(list.length > 1) {
+    for(var idx = 1; idx < list.length; idx++) {
+      arr.push(list[idx][1]);
+    }
+  }
+  var report_query = "Report Type";
+  if(arr && arr.length > 0) {
+    report_query = report_query + " (" + arr.join(", ") + ")";
+  } else {
+    report_query = report_query + " (Canvas -> List Reports for list)";
+  }
+  var report_type = Browser.inputBox(report_query);
   if(!report_type || report_type == 'cancel') { return; }
   var response = canvasRequest_("/api/v1/accounts/" + account_id + "/reports/" + report_type, "post");
   if(response.responseCode == 200) {
@@ -207,6 +220,23 @@ function checkReport_(account_id, report_type, id) {
     }
   } else {
     Browser.msgBox("There was an unexpected problem with the report for " + account_id + ", " + report_type);
+  }
+}
+
+function retrieveAvailableAccountReports() {
+  var account_id = Browser.inputBox("Account ID");
+  if(!account_id || account_id == 'cancel') { return; }
+  var list = canvasAccountReports(account_id);
+  if(list.length > 1) {
+    var arr = [];
+    for(var idx = 1; idx < list.length; idx++) {
+      arr.push(list[idx][0] + " (" + list[idx][1] + ")");
+    }
+    var report = Browser.inputBox("Report to insert: " + arr.join(", "));
+    var cell = SpreadsheetApp.getActiveRange();
+    cell.setFormula("=canvasAccountReport(\"" + account_id + "\", \"" + report + "\")");
+  } else {
+    Browser.msgBox("Error: no results found");
   }
 }
 
@@ -239,7 +269,7 @@ function canvasRequest_(endpoint, method, options) {
   var perpage = (options.per_page != undefined) ? "?per_page="+options.per_page : "";
   var resp = {};
   var requestData = { method: method,
-                      headers: { "Authorization": "Bearer " + token}};
+                     headers: { "Authorization": "Bearer " + token, "User-Agent": "GSheet Canvas API"}};
   var result = UrlFetchApp.fetch(host + endpoint + perpage, requestData);
   if (result.getResponseCode() == 200){
     var header = result.getHeaders();
@@ -405,6 +435,7 @@ function onOpen() {
   var menuEntries = [ {name: "Check Settings", functionName: "checkTokens"},
                      {name: "Set Access Token", functionName: "setToken_"},
                      {name: "Set API Host", functionName: "setHost_"},
+                     {name: "Insert Report", functionName: "retrieveAvailableAccountReports"},
                      {name: "Generate Report", functionName: "generateCanvasAccountReport"}];
   ss.addMenu("Canvas", menuEntries);  
 }
