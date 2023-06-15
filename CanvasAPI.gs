@@ -7,10 +7,7 @@
 //
 // Once you have the values you need to add this script to your Google Spreadsheet as a 
 //   script. In the Spreadsheet click Tools -> Script Editor. Then paste this source 
-//   code in to the editor that pops up. You'll also need to add Underscore as a dependency. 
-//   In the script editor click Resources -> Manage Libraries. In the Find a Library box 
-//   enter "MGwgKN2Th03tJ5OdmlzB8KPxhMjh3Sh48". This script was written using version 23, 
-//   but you can probably just pick the latest version and you'll be safe.
+//   code in to the editor that pops up.
 //
 // Next, still in the script editor, click File -> Project Properties. Go to the Project 
 //   Properties tab and add two rows:
@@ -106,8 +103,6 @@ function canvasAccountsList(options){
 function testCanvasList() {
   return canvasList("/api/v1/users/self/page_views", "results=30&keys=url,action,user_agent,user_id,render_time");
 }
-
-var _ = Underscore.load();
 
 // Generic list API endpoint
 /**
@@ -320,10 +315,10 @@ function listify_(obj, onlyKeys) {
     }
   }
   if(obj instanceof Array) {
-    var objects = _.map(obj, function(item) { return traverse_(item) });
+    var objects = obj.map((item) => traverse_(item));
     var keyCounts = {};
-    _.each(objects, function(item) {
-      _.each(_.keys(item), function(key) { keyCounts[key] = (keyCounts[key] || 0) + 1; });
+    objects.forEach((item) => {
+      Object.keys(item).forEach((key) => { keyCounts[key] = (keyCounts[key] || 0) + 1; });
     });
     var list = [[]];
     // Only show keys that are consistent across all result entities
@@ -334,7 +329,7 @@ function listify_(obj, onlyKeys) {
     }
     // Limit to only set keys if specified
     if(shownKeys.length > 0) {
-      list[0] = _.intersection(shownKeys, list[0]);
+      list[0] = shownKeys.filter(val => list[0].includes(val));
     }
     for(var idx in obj) {
       var itemResult = [];
@@ -390,6 +385,11 @@ function unquote_(value) {
   return value;
 }
 
+function isObject_(obj) {
+  var type = typeof obj;
+  return type === 'function' || (type === 'object' && !!obj);
+}
+
 /* From Devlin Daley
 Recursively descend into each of the objects properties
 flattening the whole hierarchical object model.
@@ -414,19 +414,14 @@ bday|day: "27"
 
 */
 function traverse_(o){
-  var flat = {};
-  _(o).each(function(val,key){
-    if (_.isObject(val)) {
-      var sub_tree = traverse_(val);
-
-      _(sub_tree).each(function(sval,skey){
-        flat[key + "|" + skey] = sval; })
-
-    } else {
-      flat[key] = val;
-    }
-  });
-  return flat;
+  return Object.fromEntries(
+    Object.entries(o).map(([key, val]) => {
+      return isObject_(val) ?
+        Object.entries(traverse_(val)).map(([skey, sval]) => [`${key}|${skey}`, sval])
+      :
+        [key, val];
+    })
+  );
 };
 
 // Menu options
