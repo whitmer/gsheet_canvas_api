@@ -1,15 +1,15 @@
 // This is a script to let you populate Google Spreadsheets with Canvas API data
 //
 // ==== SETUP ====
-// In order for this script to work you'll first need to know the API host you want to 
-//   speak to (typically https://yourschool.instructure.com) and you'll also need to 
+// In order for this script to work you'll first need to know the API host you want to
+//   speak to (typically https://yourschool.instructure.com) and you'll also need to
 //   generate an access token for the script to make calls on your behalf.
 //
-// Once you have the values you need to add this script to your Google Spreadsheet as a 
-//   script. In the Spreadsheet click Tools -> Script Editor. Then paste this source 
+// Once you have the values you need to add this script to your Google Spreadsheet as a
+//   script. In the Spreadsheet click Tools -> Script Editor. Then paste this source
 //   code in to the editor that pops up.
 //
-// Next, still in the script editor, click File -> Project Properties. Go to the Project 
+// Next, still in the script editor, click File -> Project Properties. Go to the Project
 //   Properties tab and add two rows:
 //
 //   canvas_api_host: (typically https://yourschool.instructure.com)
@@ -27,15 +27,15 @@
 //   =canvasList("/api/v1/users/9876/logins")
 //   =canvasObject("/api/v1/courses/1234")
 //
-// You can also specify additional options using the second parameter. These options can 
+// You can also specify additional options using the second parameter. These options can
 //   be passed as a string similar to query strings used in URLs. Possible options are:
 //
-//   results: for list API calls you can specify how many results you want back and it will 
-//            query multiple pages until it gets to that number of results. Note that more 
-//            results take more time, and DON'T MAKE LARGE RESULT REQUESTS VERY OFTEN OR 
+//   results: for list API calls you can specify how many results you want back and it will
+//            query multiple pages until it gets to that number of results. Note that more
+//            results take more time, and DON'T MAKE LARGE RESULT REQUESTS VERY OFTEN OR
 //            PANDA WILL BE SAD.
-//   keys: a comma-separated list of keys. If none are provided it will return all keys from 
-//            the API. If keys are provided, the columns will appear in the order specified 
+//   keys: a comma-separated list of keys. If none are provided it will return all keys from
+//            the API. If keys are provided, the columns will appear in the order specified
 //            in the list.
 //
 // Here's some example strings for your benefit:
@@ -65,7 +65,7 @@
 * @param options string of additional options for filtering columns, number of results, etc.
 * @return a list of courses
 */
-function canvasCourseList(account_id, options){  
+function canvasCourseList(account_id, options){
   if(account_id == 'mine' || !account_id) {
     return canvasList("/api/v1/courses", options);
   } else {
@@ -285,7 +285,7 @@ function canvasRequest_(endpoint, method, options) {
   }
   return resp;
 }
-  
+
 // Parses the query string-style parameters that can be passed for API calls
 function parseOptions_(str, defaults){
   var options = defaults || {};
@@ -323,7 +323,7 @@ function listify_(obj, onlyKeys) {
     var list = [[]];
     // Only show keys that are consistent across all result entities
     for(var idx in keyCounts) {
-      if(keyCounts[idx] == obj.length) {
+      if(keyCounts[idx] == objects.length) {
         list[0].push(idx);
       }
     }
@@ -331,9 +331,9 @@ function listify_(obj, onlyKeys) {
     if(shownKeys.length > 0) {
       list[0] = shownKeys.filter(val => list[0].includes(val));
     }
-    for(var idx in obj) {
+    for(var idx in objects) {
       var itemResult = [];
-      var item = obj[idx];
+      var item = objects[idx];
       for(var idx in list[0]) {
         var key = list[0][idx];
         itemResult.push(item[key]);
@@ -342,7 +342,7 @@ function listify_(obj, onlyKeys) {
     }
     return list;
   } else {
-    return listify_([obj]);
+    return listify_([objects]);
   }
 }
 
@@ -397,7 +397,7 @@ flattening the whole hierarchical object model.
 Hierarchy is moved into the name of the keys, separated by "|" character.
 
 Example:
-obj = 
+obj =
 {
 name: "Devlin",
 bday : {
@@ -432,7 +432,7 @@ function onOpen() {
                      {name: "Set API Host", functionName: "setHost_"},
                      {name: "Insert Report", functionName: "retrieveAvailableAccountReports"},
                      {name: "Generate Report", functionName: "generateCanvasAccountReport"}];
-  ss.addMenu("Canvas", menuEntries);  
+  ss.addMenu("Canvas", menuEntries);
 }
 function setToken_() {
   var token = Browser.inputBox("Enter your API access token:");
