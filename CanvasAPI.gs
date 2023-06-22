@@ -419,8 +419,8 @@ function traverse_(o){
       return isObject_(val) ?
         Object.entries(traverse_(val)).map(([skey, sval]) => [`${key}|${skey}`, sval])
       :
-        [key, val];
-    })
+        [[key, val]];
+    }).flat()
   );
 };
 
