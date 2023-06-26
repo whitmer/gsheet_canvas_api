@@ -37,12 +37,14 @@
 //   keys: a comma-separated list of keys. If none are provided it will return all keys from
 //            the API. If keys are provided, the columns will appear in the order specified
 //            in the list.
+//   sortOn: the key that the data should be sorted by
 //
 // Here's some example strings for your benefit:
 //
 //   "results=30&keys=url,action,user_agent,user_id,render_time"
 //   "results=100"
 //   "keys=name,login,id"
+//   "sortOn=name"
 //
 // And some examples of using options in helper methods:
 //   =canvasCourseList(221, "results=100")
@@ -122,7 +124,7 @@ function canvasList(endpoint, options){
       list = list.concat(result.result);
     }
   }
-  return listify_(list, options.keys);
+  return listify_(list, options.keys, options.sortOn);
 }
 
 /**
@@ -162,7 +164,7 @@ function canvasAccountReport(account_id, report_type, options) {
     if(result[0].attachment && result[0].attachment.url) {
       var csv = UrlFetchApp.fetch(result[0].attachment.url);
       if (csv.getResponseCode() == 200){
-        return listify_(Utilities.parseCsv(csv.getContentText()), options.keys);
+        return listify_(Utilities.parseCsv(csv.getContentText()), options.keys, options.sortOn);
       } else {
         throw "unexpected error: " + csv.getContentText();
       }
@@ -306,7 +308,7 @@ function parseOptions_(str, defaults){
 }
 
 // Make the list a spreadsheet list, including support for filtering to only certain columns
-function listify_(obj, onlyKeys) {
+function listify_(obj, onlyKeys, sortKey) {
   var tempKeys = (onlyKeys || "").split(/,/);
   var shownKeys = []
   for(var idx in tempKeys) {
@@ -316,6 +318,9 @@ function listify_(obj, onlyKeys) {
   }
   if(obj instanceof Array) {
     var objects = obj.map((item) => traverse_(item));
+    if (sortKey) {
+      objects.sort((a, b) => (a[sortKey] > b[sortKey]) ? 1 : -1)
+    }
     var keyCounts = {};
     objects.forEach((item) => {
       Object.keys(item).forEach((key) => { keyCounts[key] = (keyCounts[key] || 0) + 1; });
