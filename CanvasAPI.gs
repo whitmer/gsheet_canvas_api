@@ -1,18 +1,15 @@
 // This is a script to let you populate Google Spreadsheets with Canvas API data
 //
 // ==== SETUP ====
-// In order for this script to work you'll first need to know the API host you want to 
-//   speak to (typically https://yourschool.instructure.com) and you'll also need to 
+// In order for this script to work you'll first need to know the API host you want to
+//   speak to (typically https://yourschool.instructure.com) and you'll also need to
 //   generate an access token for the script to make calls on your behalf.
 //
-// Once you have the values you need to add this script to your Google Spreadsheet as a 
-//   script. In the Spreadsheet click Tools -> Script Editor. Then paste this source 
-//   code in to the editor that pops up. You'll also need to add Underscore as a dependency. 
-//   In the script editor click Resources -> Manage Libraries. In the Find a Library box 
-//   enter "MGwgKN2Th03tJ5OdmlzB8KPxhMjh3Sh48". This script was written using version 23, 
-//   but you can probably just pick the latest version and you'll be safe.
+// Once you have the values you need to add this script to your Google Spreadsheet as a
+//   script. In the Spreadsheet click Tools -> Script Editor. Then paste this source
+//   code in to the editor that pops up.
 //
-// Next, still in the script editor, click File -> Project Properties. Go to the Project 
+// Next, still in the script editor, click File -> Project Properties. Go to the Project
 //   Properties tab and add two rows:
 //
 //   canvas_api_host: (typically https://yourschool.instructure.com)
@@ -30,22 +27,24 @@
 //   =canvasList("/api/v1/users/9876/logins")
 //   =canvasObject("/api/v1/courses/1234")
 //
-// You can also specify additional options using the second parameter. These options can 
+// You can also specify additional options using the second parameter. These options can
 //   be passed as a string similar to query strings used in URLs. Possible options are:
 //
-//   results: for list API calls you can specify how many results you want back and it will 
-//            query multiple pages until it gets to that number of results. Note that more 
-//            results take more time, and DON'T MAKE LARGE RESULT REQUESTS VERY OFTEN OR 
+//   results: for list API calls you can specify how many results you want back and it will
+//            query multiple pages until it gets to that number of results. Note that more
+//            results take more time, and DON'T MAKE LARGE RESULT REQUESTS VERY OFTEN OR
 //            PANDA WILL BE SAD.
-//   keys: a comma-separated list of keys. If none are provided it will return all keys from 
-//            the API. If keys are provided, the columns will appear in the order specified 
+//   keys: a comma-separated list of keys. If none are provided it will return all keys from
+//            the API. If keys are provided, the columns will appear in the order specified
 //            in the list.
+//   sortOn: the key that the data should be sorted by
 //
 // Here's some example strings for your benefit:
 //
 //   "results=30&keys=url,action,user_agent,user_id,render_time"
 //   "results=100"
 //   "keys=name,login,id"
+//   "sortOn=name"
 //
 // And some examples of using options in helper methods:
 //   =canvasCourseList(221, "results=100")
@@ -68,7 +67,7 @@
 * @param options string of additional options for filtering columns, number of results, etc.
 * @return a list of courses
 */
-function canvasCourseList(account_id, options){  
+function canvasCourseList(account_id, options){
   if(account_id == 'mine' || !account_id) {
     return canvasList("/api/v1/courses", options);
   } else {
@@ -107,8 +106,6 @@ function testCanvasList() {
   return canvasList("/api/v1/users/self/page_views", "results=30&keys=url,action,user_agent,user_id,render_time");
 }
 
-var _ = Underscore.load();
-
 // Generic list API endpoint
 /**
 * Get a list of objects from a list-based endpoint in the Canvas API
@@ -127,7 +124,7 @@ function canvasList(endpoint, options){
       list = list.concat(result.result);
     }
   }
-  return listify_(list, options.keys);
+  return listify_(list, options.keys, options.sortOn);
 }
 
 /**
@@ -167,7 +164,7 @@ function canvasAccountReport(account_id, report_type, options) {
     if(result[0].attachment && result[0].attachment.url) {
       var csv = UrlFetchApp.fetch(result[0].attachment.url);
       if (csv.getResponseCode() == 200){
-        return listify_(Utilities.parseCsv(csv.getContentText()), options.keys);
+        return listify_(Utilities.parseCsv(csv.getContentText()), options.keys, options.sortOn);
       } else {
         throw "unexpected error: " + csv.getContentText();
       }
@@ -290,7 +287,7 @@ function canvasRequest_(endpoint, method, options) {
   }
   return resp;
 }
-  
+
 // Parses the query string-style parameters that can be passed for API calls
 function parseOptions_(str, defaults){
   var options = defaults || {};
@@ -311,7 +308,7 @@ function parseOptions_(str, defaults){
 }
 
 // Make the list a spreadsheet list, including support for filtering to only certain columns
-function listify_(obj, onlyKeys) {
+function listify_(obj, onlyKeys, sortKey) {
   var tempKeys = (onlyKeys || "").split(/,/);
   var shownKeys = []
   for(var idx in tempKeys) {
@@ -320,25 +317,28 @@ function listify_(obj, onlyKeys) {
     }
   }
   if(obj instanceof Array) {
-    var objects = _.map(obj, function(item) { return traverse_(item) });
+    var objects = obj.map((item) => traverse_(item));
+    if (sortKey) {
+      objects.sort((a, b) => (a[sortKey] > b[sortKey]) ? 1 : -1)
+    }
     var keyCounts = {};
-    _.each(objects, function(item) {
-      _.each(_.keys(item), function(key) { keyCounts[key] = (keyCounts[key] || 0) + 1; });
+    objects.forEach((item) => {
+      Object.keys(item).forEach((key) => { keyCounts[key] = (keyCounts[key] || 0) + 1; });
     });
     var list = [[]];
     // Only show keys that are consistent across all result entities
     for(var idx in keyCounts) {
-      if(keyCounts[idx] == obj.length) {
+      if(keyCounts[idx] == objects.length) {
         list[0].push(idx);
       }
     }
     // Limit to only set keys if specified
     if(shownKeys.length > 0) {
-      list[0] = _.intersection(shownKeys, list[0]);
+      list[0] = shownKeys.filter(val => list[0].includes(val));
     }
-    for(var idx in obj) {
+    for(var idx in objects) {
       var itemResult = [];
-      var item = obj[idx];
+      var item = objects[idx];
       for(var idx in list[0]) {
         var key = list[0][idx];
         itemResult.push(item[key]);
@@ -347,7 +347,7 @@ function listify_(obj, onlyKeys) {
     }
     return list;
   } else {
-    return listify_([obj]);
+    return listify_([objects]);
   }
 }
 
@@ -390,6 +390,11 @@ function unquote_(value) {
   return value;
 }
 
+function isObject_(obj) {
+  var type = typeof obj;
+  return type === 'function' || (type === 'object' && !!obj);
+}
+
 /* From Devlin Daley
 Recursively descend into each of the objects properties
 flattening the whole hierarchical object model.
@@ -397,7 +402,7 @@ flattening the whole hierarchical object model.
 Hierarchy is moved into the name of the keys, separated by "|" character.
 
 Example:
-obj = 
+obj =
 {
 name: "Devlin",
 bday : {
@@ -414,19 +419,14 @@ bday|day: "27"
 
 */
 function traverse_(o){
-  var flat = {};
-  _(o).each(function(val,key){
-    if (_.isObject(val)) {
-      var sub_tree = traverse_(val);
-
-      _(sub_tree).each(function(sval,skey){
-        flat[key + "|" + skey] = sval; })
-
-    } else {
-      flat[key] = val;
-    }
-  });
-  return flat;
+  return Object.fromEntries(
+    Object.entries(o).map(([key, val]) => {
+      return isObject_(val) ?
+        Object.entries(traverse_(val)).map(([skey, sval]) => [`${key}|${skey}`, sval])
+      :
+        [[key, val]];
+    }).flat()
+  );
 };
 
 // Menu options
@@ -437,7 +437,7 @@ function onOpen() {
                      {name: "Set API Host", functionName: "setHost_"},
                      {name: "Insert Report", functionName: "retrieveAvailableAccountReports"},
                      {name: "Generate Report", functionName: "generateCanvasAccountReport"}];
-  ss.addMenu("Canvas", menuEntries);  
+  ss.addMenu("Canvas", menuEntries);
 }
 function setToken_() {
   var token = Browser.inputBox("Enter your API access token:");
